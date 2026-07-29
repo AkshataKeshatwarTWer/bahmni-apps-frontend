@@ -36,6 +36,7 @@ import type { EncounterSessionStartContext } from '../../events/startConsultatio
 import { useClinicalAppData } from '../../hooks/useClinicalAppData';
 import { useEncounterConcepts } from '../../hooks/useEncounterConcepts';
 import { useEncounterSession } from '../../hooks/useEncounterSession';
+import { usePatientVisit } from '../../hooks/usePatientVisit';
 import { useClinicalConfig } from '../../providers/clinicalConfig';
 import { useAllergyStore } from '../../stores/allergyStore';
 import { useEncounterDetailsStore } from '../../stores/encounterDetailsStore';
@@ -495,8 +496,20 @@ const ConsultationPad: React.FC<ConsultationPadProps> = ({
     onClose();
   };
 
+  // A consultation requires an active visit. Detect this here in the pad (which
+  // stays mounted) rather than in EncounterDetails (which unmounts once the
+  // error shows), so the "something went wrong" state is stable, not flaky
+  // (BAH-4846). Use the clinical patientId (encounterSessionStartContext has no
+  // patientUuid), and only flag once the visit lookup has settled.
+  const { activeVisit, loading: loadingActiveVisit } =
+    usePatientVisit(patientId);
+  const hasNoActiveVisit = !loadingActiveVisit && !activeVisit;
+
   const hasError =
-    isError || isEncounterTypePropInvalid || !!encounterTypesError;
+    isError ||
+    isEncounterTypePropInvalid ||
+    !!encounterTypesError ||
+    hasNoActiveVisit;
 
   const renderPadContent = (() => {
     if (hasError)
